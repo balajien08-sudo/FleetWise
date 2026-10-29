@@ -1,0 +1,129 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int          @id @default(autoincrement())
+  email        String       @unique
+  username     String       @unique
+  passwordHash String
+  name         String
+  role         String       @default("DISPATCHER") // ADMIN, DISPATCHER
+  isActive     Boolean      @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sessions     Session[]
+  activityLogs ActivityLog[]
+
+  @@index([email])
+  @@index([username])
+  @@index([role])
+}
+
+model Session {
+  id          String   @id
+  userId      Int
+  token       String   @unique // Hashed session token
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  lastActive  DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Vehicle {
+  id             Int          @id @default(autoincrement())
+  vehicleId      String       @unique
+  registrationNo String       @unique
+  type           String
+  capacity       Float
+  status         String       @default("available") // available, assigned, maintenance, inactive
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  assignments    Assignment[]
+
+  @@index([status])
+}
+
+model Driver {
+  id                 Int          @id @default(autoincrement())
+  driverId           String       @unique
+  name               String
+  phone              String
+  email              String?
+  availabilityStatus String       @default("available") // available, assigned, unavailable
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  assignments        Assignment[]
+
+  @@index([availabilityStatus])
+}
+
+model Delivery {
+  id                 Int          @id @default(autoincrement())
+  deliveryId         String       @unique
+  pickup             String
+  dropoff            String
+  scheduledTime      DateTime
+  priority           String       @default("medium") // low, medium, high, urgent
+  status             String       @default("pending") // pending, assigned, in_transit, delivered, cancelled
+  packageDescription String?
+  requiredCapacity   Float?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  assignments        Assignment[]
+
+  @@index([status])
+  @@index([priority])
+}
+
+model Assignment {
+  id               Int       @id @default(autoincrement())
+  deliveryId       String
+  vehicleId        String
+  driverId         String
+  assignedAt       DateTime  @default(now())
+  endedAt          DateTime?
+  assignmentStatus String    @default("active") // active, completed, cancelled
+
+  delivery Delivery @relation(fields: [deliveryId], references: [deliveryId], onDelete: Cascade)
+  vehicle  Vehicle  @relation(fields: [vehicleId], references: [vehicleId], onDelete: Restrict)
+  driver   Driver   @relation(fields: [driverId], references: [driverId], onDelete: Restrict)
+
+  @@index([deliveryId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([assignmentStatus])
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  action     String
+  entityType String
+  entityId   String
+  details    String
+  actorId    String?  @default("Dispatcher")
+  userId     Int?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@index([userId])
+}
